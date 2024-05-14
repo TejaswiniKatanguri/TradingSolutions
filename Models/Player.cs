@@ -9,8 +9,7 @@ namespace TradingSolutions.Models
 
     public enum GameTypes
     {
-        None = 0,
-        NFL = 1,
-        MLB = 2
+        NFL,
+        MLB
     }
 }

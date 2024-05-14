@@ -34,10 +34,54 @@ namespace TradingSolutions
         public async Task ProcessAsync()
         {
             Console.WriteLine("Hello World!");
-            var inputFile = $"{Directory.GetParent(Directory.GetCurrentDirectory())?.Parent?.Parent?.FullName}\\Player.json ";
-            var inputJson = File.ReadAllText(inputFile);
-            var players = JsonConvert.DeserializeObject<List<Player>>(inputJson);
+            // Load player data from JSON file
+            var players = LoadPlayersFromFile();
 
+            // Add players to the depth chart
+            AddPlayersToDepthChart(players);
+
+            // Print the full depth chart
+            PrintFullDepthChart();
+
+            // Get backups for selected players
+            await GetAndPrintBackups(players);
+
+            // Print the full depth chart
+            PrintFullDepthChart();
+
+            // Remove a player from the depth chart
+            await RemoveAndPrintPlayerFromDepthChart(players);
+
+            // Print the updated depth chart
+            PrintFullDepthChart();
+        }
+
+        public static List<Player> LoadPlayersFromFile()
+        {
+            var players = new List<Player>();
+
+            foreach (var type in Enum.GetNames(typeof(GameTypes)))
+            {
+                // Load player data from a JSON file
+                var inputFile = Path.Combine(Directory.GetParent(Directory.GetCurrentDirectory())?.Parent?.Parent?.FullName, $"{type}.json");
+
+                if (File.Exists(inputFile))
+                {
+                    var inputJson = File.ReadAllText(inputFile);
+
+                    var resp = JsonConvert.DeserializeObject<List<Player>>(inputJson);
+
+                    if (resp?.Any() ?? false)
+                        players.AddRange(resp);
+                }                
+            }            
+
+            return players;
+        }
+
+        public void AddPlayersToDepthChart(List<Player> players)
+        {
+            // Add players to the depth chart
             AddPlayerToDepthChart("QB", "Tom Brady", players, 0);
             AddPlayerToDepthChart("QB", "Blaine Gabbert", players, 1);
             AddPlayerToDepthChart("QB", "Kyle Trask", players, 2);
@@ -45,57 +89,52 @@ namespace TradingSolutions
             AddPlayerToDepthChart("LWR", "Mike Evans", players, 0);
             AddPlayerToDepthChart("LWR", "Jaelon Darden", players, 1);
             AddPlayerToDepthChart("LWR", "Scott Miller", players, 2);
+        }
 
-            GetFullDepthChart();
-
-            Console.WriteLine("Back up TomBrady");
-            List<Player> backUpTomBrady = await GetBackups("QB", "Tom Brady", players);
-            PrintPlayers(backUpTomBrady);
-
-            Console.WriteLine();
-            Console.WriteLine("Back up JaelonDarden");
-
-            List<Player> backUpJaelonDarden = await GetBackups("LWR", "Jaelon Darden", players);
-            PrintPlayers(backUpJaelonDarden);
-
-            Console.WriteLine();
-            Console.WriteLine("Back up MikeEvans");
-            List<Player> backUpMikeEvans = await GetBackups("QB", "Mike Evans", players);
-            PrintPlayers(backUpMikeEvans);
-
-            Console.WriteLine();
-            Console.WriteLine("Back up BlaineGabbert");
-
-            List<Player> backUpBlaineGabbert = await GetBackups("QB", "Blaine Gabbert", players);
-            PrintPlayers(backUpBlaineGabbert);
-
-            Console.WriteLine();
-            Console.WriteLine("Back up KyleTrask");
-
-            List<Player> backUpKyleTrask = await GetBackups("QB", "Kyle Trask", players);
-            PrintPlayers(backUpKyleTrask);
-
-            Console.WriteLine();
-            Console.WriteLine("Full Depth Chart");
-            GetFullDepthChart();
-
-            Console.WriteLine();
-            Console.WriteLine("Remove player from Chart");
-            Player removedplayer = await RemovePlayerFromDepthChart("LWR", players.FirstOrDefault(x => x.Name == "Mike Evans"));
-
-            if (removedplayer != null)
-            {
-                Console.WriteLine("Removed Player");
-                PrintPlayers(new List<Player> { removedplayer });
-            }
-
-            Console.WriteLine();
-            Console.WriteLine("Full Depth Chart");
+        public void PrintFullDepthChart()
+        {
+            // Print the full depth chart
+            Console.WriteLine("Full Depth Chart:");
             GetFullDepthChart();
         }
 
-        public async Task AddPlayerToDepthChart(string position, string Name, IEnumerable<Player> players, int? positionDepth = null)
+        public async Task GetAndPrintBackups(List<Player> players)
         {
+            // Get backups for selected players and print them
+            var backupTasks = new List<Task<List<Player>>>
+            {
+                GetBackups("QB", "Tom Brady", players),
+                GetBackups("LWR", "Jaelon Darden", players),
+                GetBackups("QB", "Mike Evans", players),
+                GetBackups("QB", "Blaine Gabbert", players),
+                GetBackups("QB", "Kyle Trask", players)
+            };
+
+            var backups = await Task.WhenAll(backupTasks);
+
+            foreach (var backup in backups)
+            {
+                PrintPlayers(backup);
+            }
+        }
+
+        public async Task RemoveAndPrintPlayerFromDepthChart(List<Player> players)
+        {
+            // Remove a player from the depth chart and print the removed player
+            var playerToRemove = players.FirstOrDefault(x => x.Name == "Mike Evans");
+            if (playerToRemove != null)
+            {
+                var removedPlayer = await RemovePlayerFromDepthChart("LWR", playerToRemove);
+                if (removedPlayer != null)
+                {
+                    Console.WriteLine("Removed Player:");
+                    PrintPlayers(new List<Player> { removedPlayer });
+                }
+            }
+        }
+
+        public async Task AddPlayerToDepthChart(string position, string Name, IEnumerable<Player> players, int? positionDepth = null)
+        {         
             managerService.AddPlayerToDepthChart(position, Name, players, positionDepth);
         }
 
